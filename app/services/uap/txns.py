@@ -47,7 +47,20 @@ def _require(
             errors.append(f"{field_path}.{key}: required field missing")
 
 
+def _obj(value: Any, field_path: str, errors: List[str]) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        errors.append(f"{field_path}: must be an object")
+        return {}
+    return value
+
+
 def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
+    if not isinstance(canonical, dict):
+        raise ValueError(
+            "items_canonical validation failed:\n  items_canonical: must be an object"
+        )
     errors: List[str] = []
 
     if canonical.get("template_version") != TEMPLATE_VERSION:
@@ -57,7 +70,7 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
     if price_mode not in PRICE_MODES:
         errors.append(f"price_mode: must be one of {sorted(PRICE_MODES)}")
 
-    seller = canonical.get("seller") or {}
+    seller = _obj(canonical.get("seller"), "seller", errors)
 
     if "MIC" not in seller and "mic" not in seller:
         errors.append("seller.MIC: required field missing")
@@ -74,6 +87,9 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
     computed_line_taxes = Decimal("0")
     for item_index, item in enumerate(items):
         field_path = f"items[{item_index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{field_path}: must be an object")
+            continue
         _require(
             item,
             [
@@ -106,6 +122,9 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
         item_tax_total = Decimal("0")
         for tax_index, tax_entry in enumerate(item.get("line_tax") or []):
             tax_path = f"{field_path}.line_tax[{tax_index}]"
+            if not isinstance(tax_entry, dict):
+                errors.append(f"{tax_path}: must be an object")
+                continue
             if tax_entry.get("type") not in TAX_TYPES:
                 errors.append(f"{tax_path}.type: must be one of {sorted(TAX_TYPES)}")
             item_tax_total += _amount(
@@ -127,6 +146,9 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
     computed_charge_taxes = Decimal("0")
     for charge_index, charge in enumerate(canonical.get("charges") or []):
         field_path = f"charges[{charge_index}]"
+        if not isinstance(charge, dict):
+            errors.append(f"{field_path}: must be an object")
+            continue
         _require(charge, ["type", "label", "amount", "tax_amount"], field_path, errors)
         if "type" in charge and charge["type"] not in CHARGE_TYPES:
             errors.append(f"{field_path}.type: must be one of {sorted(CHARGE_TYPES)}")
@@ -140,6 +162,9 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
     computed_order_discounts = Decimal("0")
     for discount_index, discount_entry in enumerate(canonical.get("discounts") or []):
         field_path = f"discounts[{discount_index}]"
+        if not isinstance(discount_entry, dict):
+            errors.append(f"{field_path}: must be an object")
+            continue
         _require(
             discount_entry,
             ["scope", "label", "amount", "funded_by"],
@@ -161,7 +186,7 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
             discount_entry.get("amount", ""), f"{field_path}.amount", errors
         )
 
-    totals = canonical.get("totals") or {}
+    totals = _obj(canonical.get("totals"), "totals", errors)
     declared = {
         key: _amount(totals.get(key, ""), f"totals.{key}", errors)
         for key in [
@@ -219,7 +244,7 @@ def validate_canonical(canonical: Dict[str, Any], order_amount: str) -> None:
                 f"totals.grand_total: {declared['grand_total']} != order.amount {order_amount}"
             )
 
-    fulfilment = canonical.get("fulfilment") or {}
+    fulfilment = _obj(canonical.get("fulfilment"), "fulfilment", errors)
     if fulfilment.get("type") not in FULFILMENT_TYPES:
         errors.append(f"fulfilment.type: must be one of {sorted(FULFILMENT_TYPES)}")
     if "deliver_by" not in fulfilment:
