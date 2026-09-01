@@ -48,13 +48,17 @@ def resolve_topic_evaluation_configuration(
         max_output_tokens = 10000
     max_output_tokens = min(10000, max(128, max_output_tokens))
 
-    try:
-        max_topics = int(settings["max_topics"])
-    except (KeyError, TypeError, ValueError, OverflowError) as exc:
-        raise ValueError(
-            "evaluation_config.settings.max_topics must be an integer"
-        ) from exc
-    max_topics = min(5, max(1, max_topics))
+    raw_max_topics = settings.get("max_topics")
+    max_topics: Optional[int]
+    if raw_max_topics is None:
+        max_topics = None
+    else:
+        try:
+            max_topics = max(1, int(raw_max_topics))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(
+                "evaluation_config.settings.max_topics must be an integer"
+            ) from exc
 
     return {
         "model": model,
@@ -148,7 +152,7 @@ def topic_labels_to_catalog(labels: Optional[List[str]]) -> List[Dict[str, str]]
 
 def normalize_topics(
     raw: Dict[str, Any],
-    max_topics: int,
+    max_topics: Optional[int],
     existing_topics: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     parsed = TopicExtractionResult.model_validate(raw)
@@ -185,7 +189,7 @@ def normalize_topics(
                 "evidence_turns": sorted(set(topic.evidence_turns)),
             }
         )
-        if len(normalized) >= min(5, max(1, max_topics)):
+        if max_topics is not None and len(normalized) >= max_topics:
             break
     return normalized
 
@@ -245,7 +249,14 @@ async def extract_topics(
         raise ValueError(
             "evaluation_config has no system_prompt; update the global default row"
         )
-    prompt = base_prompt.replace("{max_topics}", str(max_topics)).replace(
+    if max_topics is None:
+        prompt = base_prompt.replace(
+            "Return no more than {max_topics} topics.",
+            "Return every distinct topic identified.",
+        )
+    else:
+        prompt = base_prompt.replace("{max_topics}", str(max_topics))
+    prompt = prompt.replace(
         "{accepted_topics}",
         json.dumps(approved_catalog, ensure_ascii=False),
     )
