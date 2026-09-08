@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from app.core.logger import logger
 
 if TYPE_CHECKING:
-    from pipecat.runner.types import RunnerArguments
+    from pipecat.runner.types import CallData, RunnerArguments
 
     from app.ai.voice.agents.breeze_buddy.template.types import TemplateModel
 
@@ -63,7 +63,7 @@ class TransportRebuildContext:
     ws_proxy: Any = None  # NonClosingWebSocket over the raw call ws
     runner_args: Optional[RunnerArguments] = None  # daily rebuild
     telephony_transport_type: Optional[str] = None  # telephony rebuild
-    telephony_call_data: Optional[dict] = None
+    telephony_call_data: Optional[CallData] = None
 
 
 def suppress_auto_hangup(transport: Any) -> None:
@@ -71,9 +71,11 @@ def suppress_auto_hangup(transport: Any) -> None:
 
     Generalizes the warm-transfer Plivo trick (``handlers/internal/warm_transfer.py``
     sets ``serializer._hangup_attempted = True``) to all providers.
-    ``_hangup_attempted`` is a private pipecat attribute — this helper is the one
-    deliberately version-coupled seam in the transfer feature (verified present and
-    identical on pipecat 1.1.0). Daily transports have no serializer; the ``hasattr``
+    ``_hangup_attempted`` is a private pipecat attribute, so this helper is the one
+    deliberately version-coupled seam in the transfer feature. The Twilio, Plivo and
+    Telnyx serializers each set it in ``__init__`` and check it in ``serialize()``
+    before REST-hanging-up on EndFrame/CancelFrame; Exotel's serializer has no
+    auto-hang-up and Daily transports have no serializer at all, so the ``hasattr``
     guard makes this a no-op there.
     """
     try:
