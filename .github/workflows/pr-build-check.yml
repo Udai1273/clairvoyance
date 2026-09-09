@@ -81,12 +81,14 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }}
-          # The 2026-08-22 renumbering of the pre-CI 026/034 duplicates is
-          # the ONE sanctioned rename (reconciled by RENAMED_MIGRATIONS in
-          # scripts/migrate.py); filter those four names out of the diff.
+          # Sanctioned renames, each reconciled by RENAMED_MIGRATIONS in
+          # scripts/migrate.py: the 2026-08-22 renumbering of the pre-CI
+          # 026/034 duplicates, and the 052 duplicate two PRs merged two
+          # days apart (create_crm_journey_view -> 055). Filter both pairs'
+          # names out of the diff.
           CHANGED=$(git diff --diff-filter=MDR --name-only \
             "origin/${{ github.base_ref }}...HEAD" -- app/database/migrations/ \
-            | grep -vE '/(026_link_call_execution_config_to_template|046_link_call_execution_config_to_template|034_knowledge_base|047_knowledge_base)\.sql$' || true)
+            | grep -vE '/(026_link_call_execution_config_to_template|046_link_call_execution_config_to_template|034_knowledge_base|047_knowledge_base|052_create_crm_journey_view|055_create_crm_journey_view)\.sql$' || true)
           if [ -n "$CHANGED" ]; then
             echo "Migration files are immutable once merged. Modified/deleted/renamed:"
             echo "$CHANGED"

@@ -55,6 +55,7 @@ RENAMED_MIGRATIONS = {
         "046_link_call_execution_config_to_template.sql"
     ),
     "034_knowledge_base.sql": "047_knowledge_base.sql",
+    "052_create_crm_journey_view.sql": "055_create_crm_journey_view.sql",
 }
 
 
